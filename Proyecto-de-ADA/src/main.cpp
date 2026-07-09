@@ -1,74 +1,108 @@
 #include <iostream>
 #include <vector>
-#include <chrono> // Para medir el tiempo exacto de ejecución
-#include <random> // Para generar las piezas aleatorias
-#include <stdexcept> // Para manejar errores de memoria
+#include <chrono> 
+#include <random> 
+#include <stdexcept>
+#include <algorithm> // Necesario para ordenar los datos
 #include "Algoritmos.h"
 
 using namespace std;
 using namespace std::chrono;
 
 // =========================================================
-// FUNCIÓN AUXILIAR: GENERADOR DE CASOS DE PRUEBA
+// FUNCIÓN AUXILIAR: GENERADOR DE CASOS DE PRUEBA (ACTUALIZADO)
 // =========================================================
-vector<Pieza> GenerarDataset(long long n, double max_w, double max_h) {
+vector<Pieza> GenerarDataset(long long n, double max_w, double max_h, int naturaleza_datos) {
     vector<Pieza> dataset;
-    // Pre-reservamos memoria para evitar realojamientos costosos
     dataset.reserve(n); 
 
-    // Configuramos un generador de números aleatorios
     random_device rd;
     mt19937 gen(rd());
-    uniform_real_distribution<> dis_w(10.0, max_w); // Ancho entre 10 y max_w
-    uniform_real_distribution<> dis_h(10.0, max_h); // Alto entre 10 y max_h
+    uniform_real_distribution<> dis_w(10.0, max_w);
+    uniform_real_distribution<> dis_h(10.0, max_h);
 
+    // 1. Generación base (Aleatoria)
     for (long long i = 0; i < n; i++) {
         dataset.push_back(Pieza(i + 1, dis_w(gen), dis_h(gen)));
     }
+
+    // 2. Modificación según la "Naturaleza de los Datos" (Rúbrica 5.a)
+    if (naturaleza_datos == 2) {
+        // Ordenado (Área ascendente - Peor caso teórico para empaquetamiento)
+        sort(dataset.begin(), dataset.end(), [](const Pieza& a, const Pieza& b) {
+            return (a.w * a.h) < (b.w * b.h);
+        });
+    } 
+    else if (naturaleza_datos == 3) {
+        // Ordenado Inversamente (Área descendente - Mejor caso)
+        sort(dataset.begin(), dataset.end(), [](const Pieza& a, const Pieza& b) {
+            return (a.w * a.h) > (b.w * b.h);
+        });
+    }
+    // Si es 1 (Aleatorio), se queda como se generó en el bucle for.
+
     return dataset;
 }
 
 // =========================================================
-// FUNCIÓN PRINCIPAL
+// FUNCIÓN PRINCIPAL Y MENÚ INTERACTIVO
 // =========================================================
 int main() {
-    // Dimensiones estándar de la plancha comercial (Melamina)
     const double W = 120.0;
     const double H = 240.0;
-    int opcion;
+    int opcion_tamano;
+    int opcion_naturaleza;
 
     do {
         cout << "\n======================================================\n";
         cout << "   OPTIMIZADOR DE CORTE 2D (Cutting Stock Problem)    \n";
         cout << "======================================================\n";
-        cout << "1. Caso Pequeno (n = 10) -> Evaluar Backtracking vs FFDH\n";
-        cout << "2. Caso Mediano (n = 10^3) -> Evaluar FFDH\n";
-        cout << "3. Caso Grande  (n = 10^6) -> Evaluar FFDH\n";
+        cout << "1. Caso Pequeno (n = 10) -> Evaluar Backtracking vs Heuristica\n";
+        cout << "2. Caso Mediano (n = 10^3) -> Evaluar Heuristica\n";
+        cout << "3. Caso Grande  (n = 10^6) -> Evaluar Heuristica\n";
         cout << "4. Caso Extremo (n = 10^10) -> Prueba de Estres (RAM)\n";
         cout << "5. Salir\n";
-        cout << "Seleccione un caso de prueba: ";
-        cin >> opcion;
+        cout << "Seleccione el TAMANO del caso de prueba: ";
+        cin >> opcion_tamano;
 
-        if (opcion < 1 || opcion > 4) {
-            if (opcion != 5) cout << "Opcion invalida.\n";
+        if (opcion_tamano == 5) {
+            break;
+        }
+        if (opcion_tamano < 1 || opcion_tamano > 4) {
+            cout << "Opcion invalida.\n";
             continue;
         }
 
+        // --- NUEVO MENÚ INTERACTIVO: NATURALEZA DE LOS DATOS ---
+        cout << "\n--- NATURALEZA DE LOS DATOS ---\n";
+        cout << "1. Aleatorios (Generacion estandar)\n";
+        cout << "2. Ordenados (Area ascendente - Peor caso)\n";
+        cout << "3. Inversamente Ordenados (Area descendente - Mejor caso)\n";
+        cout << "Seleccione la NATURALEZA de las piezas: ";
+        cin >> opcion_naturaleza;
+
+        // Validación básica por si el usuario teclea un número incorrecto
+        if (opcion_naturaleza < 1 || opcion_naturaleza > 3) {
+            cout << "Opcion invalida. Se usaran datos aleatorios por defecto.\n";
+            opcion_naturaleza = 1;
+        }
+
+        // Asignación de N
         long long n = 0;
-        if (opcion == 1) n = 10;
-        else if (opcion == 2) n = 1000;
-        else if (opcion == 3) n = 1000000;
-        else if (opcion == 4) n = 10000000000LL; // 10 mil millones
+        if (opcion_tamano == 1) n = 10;
+        else if (opcion_tamano == 2) n = 1000;
+        else if (opcion_tamano == 3) n = 1000000;
+        else if (opcion_tamano == 4) n = 10000000000LL;
 
         cout << "\nGenerando dataset de " << n << " piezas...\n";
         
         try {
-            // El bloque try-catch es vital para sobrevivir al caso n = 10^10
-            vector<Pieza> piezas = GenerarDataset(n, W, H);
+            // AQUI SE PASA LA VARIABLE AL GENERADOR:
+            vector<Pieza> piezas = GenerarDataset(n, W, H, opcion_naturaleza);
             cout << "Dataset generado exitosamente.\n\n";
 
             // --- EJECUCIÓN DEL BACKTRACKING (Solo para n=10) ---
-            if (opcion == 1) {
+            if (opcion_tamano == 1) {
                 cout << "--- Ejecutando METODO EXACTO (Backtracking) ---\n";
                 auto start_bt = high_resolution_clock::now();
                 
@@ -81,10 +115,12 @@ int main() {
                 cout << "> Tiempo de ejecucion: " << duration_bt.count() << " ms\n\n";
             }
 
-            // --- EJECUCIÓN DE LA HEURÍSTICA FFDH ---
-            cout << "--- Ejecutando HEURISTICA (FFDH) ---\n";
+            // --- EJECUCIÓN DE LA HEURÍSTICA ---
+            cout << "--- Ejecutando HEURISTICA (NFDH) ---\n";
             auto start_ffdh = high_resolution_clock::now();
             
+            // Aunque la función se llame FFDH_Corte en Algoritmos.h, 
+            // internamente ya corre tu optimización industrial NFDH
             vector<Plancha> sol_ffdh = FFDH_Corte(piezas, W, H);
             
             auto end_ffdh = high_resolution_clock::now();
@@ -94,14 +130,13 @@ int main() {
             cout << "> Tiempo de ejecucion: " << duration_ffdh.count() << " ms\n";
 
         } catch (const bad_alloc& e) {
-            // Aquí capturamos el colapso de la memoria RAM
             cout << "\n[ERROR CRITICO DE HARDWARE]\n";
             cout << "Se ha producido un desbordamiento de memoria (Heap Overflow).\n";
             cout << "Explicacion: La Complejidad Espacial es O(n). Intentar almacenar " << n 
                  << " objetos excede la capacidad de la memoria RAM disponible.\n";
         }
 
-    } while (opcion != 5);
+    } while (true);
 
     cout << "Saliendo del programa...\n";
     return 0;
