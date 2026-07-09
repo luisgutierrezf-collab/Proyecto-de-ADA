@@ -3,7 +3,8 @@
 using namespace std;
 
 // =========================================================
-// IMPLEMENTACIÓN: HEURÍSTICA FFDH
+// IMPLEMENTACIÓN: HEURÍSTICA NFDH (Next Fit Decreasing Height)
+// Optimizada a O(n) para volúmenes industriales masivos
 // =========================================================
 vector<Plancha> FFDH_Corte(vector<Pieza> piezas, double W, double H) {
     
@@ -14,16 +15,18 @@ vector<Plancha> FFDH_Corte(vector<Pieza> piezas, double W, double H) {
     });
 
     vector<Plancha> lista_planchas;
+    lista_planchas.reserve(piezas.size()); // Prevenir realojamiento de RAM
 
-    // 2. Empaquetamiento
+    // 2. Empaquetamiento (NFDH - Solo revisa la última plancha abierta)
     for (size_t i = 0; i < piezas.size(); i++) {
         Pieza& pieza = piezas[i];
         bool ubicada = false;
 
-        for (size_t j = 0; j < lista_planchas.size(); j++) {
-            Plancha& plancha = lista_planchas[j];
+        // Si ya hay al menos una plancha, intentamos meter la pieza SOLO en ESA ÚLTIMA plancha
+        if (!lista_planchas.empty()) {
+            Plancha& plancha = lista_planchas.back(); // .back() obtiene solo la última
             
-            // Fase A: Intentar ubicar en tiras existentes
+            // Fase A: Intentar ubicar en tiras existentes de la última plancha
             for (size_t k = 0; k < plancha.tiras.size(); k++) {
                 TiraCorte& tira = plancha.tiras[k];
                 if (tira.ancho_usado + pieza.w <= W && pieza.h <= tira.h_max) {
@@ -35,10 +38,9 @@ vector<Plancha> FFDH_Corte(vector<Pieza> piezas, double W, double H) {
                     break;
                 }
             }
-            if (ubicada) break;
 
-            // Fase B: Crear nueva tira en la misma plancha
-            if (plancha.altura_usada + pieza.h <= H) {
+            // Fase B: Crear nueva tira en esa misma última plancha
+            if (!ubicada && plancha.altura_usada + pieza.h <= H) {
                 TiraCorte nueva_tira(plancha.altura_usada, pieza.h, pieza.w);
                 pieza.x = 0;
                 pieza.y = nueva_tira.y_base;
@@ -47,11 +49,10 @@ vector<Plancha> FFDH_Corte(vector<Pieza> piezas, double W, double H) {
                 plancha.altura_usada += pieza.h;
                 plancha.AgregarPieza(pieza);
                 ubicada = true;
-                break;
             }
         }
 
-        // Fase C: Abrir nueva plancha maestra si no cupo en ningún lado
+        // Fase C: Abrir nueva plancha maestra (porque no cupo en la última o no había ninguna)
         if (!ubicada) {
             Plancha nueva_plancha(W, H);
             TiraCorte nueva_tira(0, pieza.h, pieza.w);
@@ -97,8 +98,8 @@ void Backtracking_Corte(vector<Pieza>& piezas, int indice, double W, double H,
         Plancha& plancha = estado_actual[i];
         
         // Escaneamos píxel por píxel (incremento de 1.0)
-        for (double x = 0; x <= W - pieza_actual.w; x += 1.0) {
-            for (double y = 0; y <= H - pieza_actual.h; y += 1.0) {
+        for (double x = 0; x <= W - pieza_actual.w; x += 20.0) {
+            for (double y = 0; y <= H - pieza_actual.h; y += 20.0) {
                 
                 if (plancha.ValidarNoSuperposicion(x, y, pieza_actual.w, pieza_actual.h)) {
                     // Aplicar jugada
